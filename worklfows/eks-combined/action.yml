@@ -1,0 +1,145 @@
+name: Build
+
+on:
+  workflow_call:
+permissions:
+  id-token: write
+  contents: read 
+  packages: write
+  deployments: write
+jobs:
+  build:
+    name: Build container and push to ECR
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: Checkout
+      uses: actions/checkout@v2
+      id: checkout
+
+    - name: Setup BuildX
+      uses: docker/setup-buildx-action@v1.6.0
+      id: setup-buildx
+
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract-branch
+
+    - name: Get ENV variables
+      uses: ./.github/actions/setvars
+      id: get-env
+      with:
+        varFilePath: ./.github/variables/${{ steps.extract-branch.outputs.branch }}.env
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@master
+      id: aws-configure
+      with:
+        role-to-assume: ${{ env.STS_ROLE }}
+        role-session-name: buildsession
+        aws-region: eu-west-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@master
+      with:
+        images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=sha,format=long,prefix=
+
+    - name: Cache Docker layers
+      uses: actions/cache@v2
+      id: docker-cache-pull
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-single-buildx-standard
+        restore-keys: |
+          ${{ runner.os }}-single-buildx
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v2
+      id: build
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new
+        build-args: |
+          environment=${{ env.ENVIRONMENT }}
+          AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }}
+          AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
+    - name: Move cache
+      id: docker-cache-save
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+    - name: Install helm
+      uses: azure/setup-helm@v1
+      id: install-helm
+
+    - name: Login to Amazon EKS
+      id: eks
+      run: |
+        aws eks update-kubeconfig --name h2c
+
+    - name: Start deployment
+      uses: bobheadxi/deployments@v0.6.2
+      id: start-deployment
+      with:
+        step: start
+        token: ${{ secrets.GITHUB_TOKEN }}
+        env: ${{ env.ENVIRONMENT }}
+
+    - name: Deploy via Helm
+      id: deploy
+      run: |
+        helm repo add attopartners https://attopartners.github.io/helmcharts/charts
+        helm repo update  
+        helm upgrade --install ${{ env.NAMESPACE }} attopartners/atto-app --version ${{ env.HELM_CHART_VERSION }} --values ${{ env.HELM_FILE }} -n ${{ env.NAMESPACE }} --set commit=${{ github.event.after }}
+        
+    - name: Update deployment status
+      uses: bobheadxi/deployments@v0.6.2
+      id: update-deployment
+      if: always()
+      with:
+        step: finish
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ job.status }}
+        deployment_id: ${{ steps.start-deployment.outputs.deployment_id }}
+        env_url: ${{ env.URL }}
+
+    - name: Get Slack Webhook URL from AWS Secrets Manager
+      uses: abhilash1in/aws-secrets-manager-action@v1.1.0
+      with:
+        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
+        aws-region: ${{ env.AWS_REGION }}
+        secrets: |
+          slack
+        parse-json: true
+      if: always()
+
+    - name: Slack Notification
+      uses: act10ns/slack@v1
+      with:
+        status: ${{ job.status }}
+        channel: '#deployment'
+        steps: ${{ toJson(steps) }}
+        message: Deploying {{ env.GITHUB_REF_NAME }} branch
+      env:
+        SLACK_WEBHOOK_URL: ${{ env.SLACK_SLACK_WEBHOOK_URL }} # required
+      if: always()
+

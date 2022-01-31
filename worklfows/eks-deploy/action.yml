@@ -1,0 +1,85 @@
+name: Deploy
+
+on:
+  workflow_call:
+permissions:
+  id-token: write
+  contents: read 
+  deployments: write
+jobs:
+  deploy:
+    name: Deploy via Helm to Kubernetes
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract_branch
+
+    - name: Get ENV variables
+      uses: ./.github/actions/setvars
+      with:
+        varFilePath: ./.github/variables/${{ steps.extract_branch.outputs.branch }}.env
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@master
+      with:
+        role-to-assume: ${{ env.STS_ROLE }}
+        role-session-name: buildsession
+        aws-region: eu-west-1
+
+    - name: Install helm
+      uses: azure/setup-helm@v1
+
+    - name: Login to Amazon EKS
+      run: |
+        aws eks update-kubeconfig --name h2c
+
+    - name: Start deployment
+      uses: bobheadxi/deployments@v0.6.2
+      id: deployment
+      with:
+        step: start
+        token: ${{ secrets.GITHUB_TOKEN }}
+        env: ${{ env.ENVIRONMENT }}
+
+    - name: Deploy via Helm
+      run: |
+        helm repo add attopartners https://attopartners.github.io/helmcharts/charts
+        helm repo update  
+        helm upgrade --install ${{ env.NAMESPACE }} attopartners/atto-app --version ${{ env.HELM_CHART_VERSION }} --values ${{ env.HELM_FILE }} -n ${{ env.NAMESPACE }} --set commit=${{ github.event.after }}
+        
+    - name: Update deployment status
+      uses: bobheadxi/deployments@v0.6.2
+      if: always()
+      with:
+        step: finish
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ job.status }}
+        deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+        env_url: ${{ env.URL }}
+        
+    - name: Get Slack Webhook URL from AWS Secrets Manager
+      uses: abhilash1in/aws-secrets-manager-action@v1.1.0
+      with:
+        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
+        aws-region: ${{ env.AWS_REGION }}
+        secrets: |
+          slack
+        parse-json: true
+      if: always()
+
+    - name: Slack Notification
+      uses: act10ns/slack@v1
+      with:
+        status: ${{ job.status }}
+        channel: '#deployment'
+      env:
+        SLACK_WEBHOOK_URL: ${{ env.SLACK_SLACK_WEBHOOK_URL }} # required
+      if: always()
