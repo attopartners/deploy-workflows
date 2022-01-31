@@ -5,4 +5,4 @@ on:
       - master
 jobs:
   build:
-    uses: attopartners/deploy-workflows/workflows/eks-combined
+    uses: attopartners/deploy-workflows/workflows/eks-combined@latest
