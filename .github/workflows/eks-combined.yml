@@ -27,7 +27,7 @@ jobs:
       id: extract-branch
 
     - name: Get ENV variables
-      uses: attopartners/deploy-workflows/.github/actions/setvars.yml@master
+      uses: attopartners/deploy-workflows/.github/actions/setvars@master
       id: get-env
       with:
         varFilePath: ./.github/variables/${{ steps.extract-branch.outputs.branch }}.env
