@@ -1,0 +1,8 @@
+name: Build & Deploy
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    uses: attopartners/deploy-workflows/workflows/eks-combined
