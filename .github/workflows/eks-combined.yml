@@ -92,7 +92,7 @@ jobs:
     - name: Login to Amazon EKS
       id: eks
       run: |
-        aws eks update-kubeconfig --name h2c
+        aws eks update-kubeconfig --name ${{ env.EKS_NAME }}
 
     - name: Start deployment
       uses: bobheadxi/deployments@v0.6.2
