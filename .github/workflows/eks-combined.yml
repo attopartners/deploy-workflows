@@ -80,7 +80,7 @@ jobs:
           AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
         secrets: |
-          "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+          "github_token=${{ secrets.GITHUB_TOKEN }}"
     - name: Move cache
       id: docker-cache-save
       run: |
