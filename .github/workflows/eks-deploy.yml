@@ -13,17 +13,16 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Extract branch name
       shell: bash
-      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-      id: extract_branch
+      run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
 
     - name: Get ENV variables
       uses: attopartners/deploy-workflows/.github/actions/setvars@master
       with:
-        varFilePath: ./.github/variables/${{ steps.extract_branch.outputs.branch }}.env
+        varFilePath: ./.github/variables/${{ env.branch }}.env
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@master

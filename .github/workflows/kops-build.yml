@@ -2,6 +2,9 @@ name: Build
 
 on:
   workflow_call:
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
 
 permissions:
   id-token: write
@@ -68,24 +71,12 @@ jobs:
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-    - name: Get Slack Webhook URL from AWS Secrets Manager
-      uses: abhilash1in/aws-secrets-manager-action@v1.1.0
-      with:
-        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
-        aws-region: ${{ env.AWS_REGION }}
-        secrets: |
-          slack
-        parse-json: true
-      if: failure()
-
     - name: Slack Notification
       uses: act10ns/slack@v1
       with:
         status: ${{ job.status }}
         channel: '#deployment'
       env:
-        SLACK_WEBHOOK_URL: ${{ env.SLACK_SLACK_WEBHOOK_URL }} # required
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
       if: failure()
 

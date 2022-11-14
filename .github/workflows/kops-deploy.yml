@@ -2,6 +2,8 @@ name: Deploy
 on:
   workflow_call:
     secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
       KUBE_CONFIG:
         required: true
 permissions:
@@ -25,10 +27,44 @@ jobs:
       with:
         varFilePath: ./.github/variables/${{ env.branch }}.env
 
-    - uses: actions-hub/kubectl@master
+    - name: Configure kubectl credentials
+      uses: actions-hub/kubectl@master
       env:
         KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         KUBE_CONTEXT: ${{ env.KUBE_CONTEXT }}
-    - uses: actions-hub/kubectl@master
+
+    - name: Install helm
+      uses: azure/setup-helm@v1
+    
+    - name: Start deployment
+      uses: bobheadxi/deployments@v0.6.2
+      id: deployment
       with:
-        args: get pods
+        step: start
+        token: ${{ secrets.GITHUB_TOKEN }}
+        env: ${{ env.ENVIRONMENT }}
+
+    - name: Deploy via Helm
+      run: |
+        helm repo add attopartners https://attopartners.github.io/helmcharts/charts
+        helm repo update  
+        helm upgrade --install ${{ env.NAMESPACE }} attopartners/atto-app --version ${{ env.HELM_CHART_VERSION }} --values ${{ env.HELM_FILE }} -n ${{ env.NAMESPACE }} --set commit=${{ github.event.after }}
+        
+    - name: Update deployment status
+      uses: bobheadxi/deployments@v0.6.2
+      if: always()
+      with:
+        step: finish
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ job.status }}
+        deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+        env_url: ${{ env.URL }}
+    
+    - name: Slack Notification
+      uses: act10ns/slack@v1
+      with:
+        status: ${{ job.status }}
+        channel: '#deployment'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
+      if: always()
