@@ -10,10 +10,23 @@ jobs:
     name: Deploy via Helm to Kubernetes
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract_branch
+
+    - name: Get ENV variables
+      uses: attopartners/deploy-workflows/.github/actions/setvars@master
+      with:
+        varFilePath: ./.github/variables/${{ steps.extract_branch.outputs.branch }}.env
+
     - uses: actions-hub/kubectl@master
       env:
         KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        KUBE_CONTEXT: ${{ env.KUBE_CONTEXT }}
     - uses: actions-hub/kubectl@master
       with:
         args: get pods
