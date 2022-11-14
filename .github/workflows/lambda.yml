@@ -13,6 +13,10 @@ on:
       environment:
         default: 'production'
         type: string
+      function_name:
+        description: 'Lambda function name'
+        required: true
+        type: string
     outputs:
       image:
         description: 'Image name'
