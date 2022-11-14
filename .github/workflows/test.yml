@@ -45,6 +45,6 @@ jobs:
 
     - name: Deploy via Helm
       run: |
-        echo ${{ env.GITHUB_WORKSPACE }}
+        echo $GITHUB_WORKSPACE
         echo ${{ inputs.helm_file }}
-        ls -al ${{ env.GITHUB_WORKSPACE }}/${{ inputs.helm_file }}
+        ls -al $GITHUB_WORKSPACE/${{ inputs.helm_file }}
