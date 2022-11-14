@@ -5,12 +5,12 @@ on:
       environment:
         default: 'production'
         type: string
-      image:
-        description: 'Image name'
-        required: true
-        type: string
       k8s_namespace:
         description: 'Kubernetes namespace'
+        required: true
+        type: string
+      k8s_deployment:
+        description: 'Kubernetes deployment name'
         required: true
         type: string
       helm_file:
@@ -22,8 +22,6 @@ on:
         type: string
         default: '0.2.13'
     secrets:
-      SLACK_WEBHOOK_URL:
-        required: true
       KUBE_CONFIG:
         required: true
       KUBE_CONTEXT:
@@ -36,21 +34,31 @@ jobs:
   deploy:
     name: Deploy via Helm to Kubernetes
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     steps:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Configure kubectl credentials
-      uses: actions-hub/kubectl@master
-      env:
-        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        KUBE_CONTEXT: ${{ secrets.KUBE_CONTEXT }}
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
 
     - name: Install helm
       uses: azure/setup-helm@v3
+
+    - name: Setup kubectl
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        KUBE_CONTEXT: ${{ secrets.KUBE_CONTEXT }}
+      run: |
+        echo "$KUBE_CONFIG" | base64 -d > $HOME/.kube/config
+        kubectl config use-context $KUBE_CONTEXT
 
     - name: Deploy via Helm
       run: |
         helm repo add attopartners https://attopartners.github.io/helmcharts/charts
         helm repo update  
         helm upgrade --install ${{ inputs.k8s_namespace }} attopartners/atto-app --version ${{ inputs.helm_chart_version }} --values ${{ inputs.helm_file }} -n ${{ inputs.k8s_namespace }} --set commit=${{ github.event.after }}
+
+    - name: Wait for deployment to be ready
+      run: |
+        kubectl rollout status -w --timeout=300s deployment/${{ inputs.k8s_deployment }} -n ${{ inputs.k8s_namespace }}
