@@ -58,7 +58,7 @@ jobs:
       run: |
         helm repo add attopartners https://attopartners.github.io/helmcharts/charts
         helm repo update  
-        helm upgrade --install ${{ inputs.k8s_namespace }} attopartners/atto-app --version ${{ inputs.helm_chart_version }} --values ${{ env.GITHUB_WORKSPACE }}/${{ inputs.helm_file }} -n ${{ inputs.k8s_namespace }} --set commit=${{ github.event.after }}
+        helm upgrade --install ${{ inputs.k8s_namespace }} attopartners/atto-app --version ${{ inputs.helm_chart_version }} --values $GITHUB_WORKSPACE/${{ inputs.helm_file }} -n ${{ inputs.k8s_namespace }} --set commit=${{ github.event.after }}
 
     - name: Wait for deployment to be ready
       run: |
