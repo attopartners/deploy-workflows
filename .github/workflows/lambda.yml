@@ -28,7 +28,7 @@ permissions:
   packages: write
   
 jobs:
-  build:
+  lambda:
     name: Build container and push to ECR
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
