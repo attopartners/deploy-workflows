@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Test
-    - uses: actions-hub/kubectl@master
+      uses: actions-hub/kubectl@master
       env:
         KUBE_CONFIG: ${{ secrets.KUBECONFIG }}
       with:
