@@ -18,13 +18,12 @@ jobs:
 
     - name: Extract branch name
       shell: bash
-      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-      id: extract_branch
+      run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
 
     - name: Get ENV variables
       uses: attopartners/deploy-workflows/.github/actions/setvars@master
       with:
-        varFilePath: ./.github/variables/${{ steps.extract_branch.outputs.branch }}.env
+        varFilePath: ./.github/variables/${{ env.branch }}.env
 
     - uses: actions-hub/kubectl@master
       env:
