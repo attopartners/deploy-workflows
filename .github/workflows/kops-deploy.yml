@@ -10,9 +10,10 @@ jobs:
     name: Deploy via Helm to Kubernetes
     runs-on: ubuntu-latest
     steps:
-    - name: Test
-      uses: actions-hub/kubectl@master
+    - uses: actions/checkout@v1
+    - uses: actions-hub/kubectl@master
       env:
         KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+    - uses: actions-hub/kubectl@master
       with:
         args: get pods
