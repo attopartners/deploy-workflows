@@ -40,7 +40,8 @@ jobs:
       uses: actions/checkout@v3
 
     - name: envsvsvs
-      run: env
+      run: |
+        env
 
     - name: Deploy via Helm
       run: |
