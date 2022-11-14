@@ -13,6 +13,6 @@ jobs:
     - name: Test
       uses: actions-hub/kubectl@master
       env:
-        KUBE_CONFIG: ${{ secrets.KUBECONFIG }}
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
       with:
         args: get pods
