@@ -68,11 +68,12 @@ jobs:
       run: |
         kubectl rollout status -w --timeout=300s deployment/${{ inputs.k8s_deployment }} -n ${{ inputs.k8s_namespace }}
 
-    - name: Slack Notification on Failure
+    - name: Slack Notification
       uses: act10ns/slack@v1
       with:
         status: ${{ job.status }}
         channel: '#deployment'
+        message: '[${{ job.status }}] ${{ env.GITHUB_REPOSITORY }} to ${{ inputs.environment }}'
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
       if: ${{ always() }}

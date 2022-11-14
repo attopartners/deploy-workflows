@@ -96,6 +96,7 @@ jobs:
       with:
         status: ${{ job.status }}
         channel: '#deployment'
+        message: '[${{ job.status }}] ${{ env.GITHUB_REPOSITORY }} to ${{ inputs.environment }} at build stage'
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
       if: ${{ failure() }}
