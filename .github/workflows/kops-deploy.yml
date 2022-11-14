@@ -19,7 +19,6 @@ on:
         type: string
       helm_chart_version:
         description: 'Helm chart version'
-        required: true
         type: string
         default: '0.2.13'
     secrets:
