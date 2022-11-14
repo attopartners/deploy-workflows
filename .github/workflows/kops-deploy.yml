@@ -1,6 +1,9 @@
 name: Deploy
 on:
   workflow_call:
+    secrets:
+      KUBE_CONFIG:
+        required: true
 permissions:
   id-token: write
   contents: read 
