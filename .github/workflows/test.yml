@@ -1,0 +1,46 @@
+name: Deploy
+on:
+  workflow_call:
+    inputs:
+      environment:
+        default: 'production'
+        type: string
+      k8s_namespace:
+        description: 'Kubernetes namespace'
+        required: true
+        type: string
+      k8s_deployment:
+        description: 'Kubernetes deployment name'
+        required: true
+        type: string
+      helm_file:
+        description: 'Helm file'
+        required: true
+        type: string
+      helm_chart_version:
+        description: 'Helm chart version'
+        type: string
+        default: '0.2.13'
+    secrets:
+      KUBE_CONFIG:
+        required: true
+      KUBE_CONTEXT:
+        required: true
+permissions:
+  id-token: write
+  contents: read 
+  deployments: write
+jobs:
+  deploy:
+    name: Deploy via Helm to Kubernetes
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Deploy via Helm
+      run: |
+        echo ${{ env.GITHUB_WORKSPACE }}
+        echo ${{ inputs.helm_file }}
+        ls -al ${{ env.GITHUB_WORKSPACE }}/${{ inputs.helm_file }}
