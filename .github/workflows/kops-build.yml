@@ -2,6 +2,9 @@ name: Build
 
 on:
   workflow_call:
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
     inputs:
       ecr_repository:
         description: 'ECR repository name'
@@ -87,3 +90,12 @@ jobs:
       run: |
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+    - name: Slack Notification on Failure
+      uses: act10ns/slack@v1
+      with:
+        status: ${{ job.status }}
+        channel: '#deployment'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
+      if: ${{ failure() }}

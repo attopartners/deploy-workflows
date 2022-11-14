@@ -26,6 +26,8 @@ on:
         required: true
       KUBE_CONTEXT:
         required: true
+      SLACK_WEBHOOK_URL:
+        required: true
 permissions:
   id-token: write
   contents: read 
@@ -44,6 +46,8 @@ jobs:
 
     - name: Install helm
       uses: azure/setup-helm@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup kubectl
       env:
@@ -63,3 +67,12 @@ jobs:
     - name: Wait for deployment to be ready
       run: |
         kubectl rollout status -w --timeout=300s deployment/${{ inputs.k8s_deployment }} -n ${{ inputs.k8s_namespace }}
+
+    - name: Slack Notification on Failure
+      uses: act10ns/slack@v1
+      with:
+        status: ${{ job.status }}
+        channel: '#deployment'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
+      if: ${{ always() }}
