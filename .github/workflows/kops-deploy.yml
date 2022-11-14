@@ -1,10 +1,33 @@
 name: Deploy
 on:
   workflow_call:
+    inputs:
+      environment:
+        default: 'production'
+        type: string
+      image:
+        description: 'Image name'
+        required: true
+        type: string
+      k8s_namespace:
+        description: 'Kubernetes namespace'
+        required: true
+        type: string
+      helm_file:
+        description: 'Helm file'
+        required: true
+        type: string
+      helm_chart_version:
+        description: 'Helm chart version'
+        required: true
+        type: string
+        default: '0.2.13'
     secrets:
       SLACK_WEBHOOK_URL:
         required: true
       KUBE_CONFIG:
+        required: true
+      KUBE_CONTEXT:
         required: true
 permissions:
   id-token: write
@@ -18,20 +41,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Extract branch name
-      shell: bash
-      run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
-
-    - name: Get ENV variables
-      uses: attopartners/deploy-workflows/.github/actions/setvars@master
-      with:
-        varFilePath: ./.github/variables/${{ env.branch }}.env
-
     - name: Configure kubectl credentials
       uses: actions-hub/kubectl@master
       env:
         KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        KUBE_CONTEXT: ${{ env.KUBE_CONTEXT }}
+        KUBE_CONTEXT: ${{ secrets.KUBE_CONTEXT }}
 
     - name: Install helm
       uses: azure/setup-helm@v1
@@ -42,29 +56,10 @@ jobs:
       with:
         step: start
         token: ${{ secrets.GITHUB_TOKEN }}
-        env: ${{ env.ENVIRONMENT }}
+        env: ${{ inputs.environment }}
 
     - name: Deploy via Helm
       run: |
         helm repo add attopartners https://attopartners.github.io/helmcharts/charts
         helm repo update  
-        helm upgrade --install ${{ env.NAMESPACE }} attopartners/atto-app --version ${{ env.HELM_CHART_VERSION }} --values ${{ env.HELM_FILE }} -n ${{ env.NAMESPACE }} --set commit=${{ github.event.after }}
-        
-    - name: Update deployment status
-      uses: bobheadxi/deployments@v0.6.2
-      if: always()
-      with:
-        step: finish
-        token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ job.status }}
-        deployment_id: ${{ steps.deployment.outputs.deployment_id }}
-        env_url: ${{ env.URL }}
-    
-    - name: Slack Notification
-      uses: act10ns/slack@v1
-      with:
-        status: ${{ job.status }}
-        channel: '#deployment'
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
-      if: always()
+        helm upgrade --install ${{ inputs.k8s_namepsace }} attopartners/atto-app --version ${{ inputs.helm_chart_version }} --values ${{ inputs.helm_file }} -n ${{ inputs.k8s_namepsace }} --set commit=${{ github.event.after }}
