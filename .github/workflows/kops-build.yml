@@ -27,7 +27,7 @@ jobs:
   build:
     name: Build container and push to ECR
     environment: ${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ contains(github.event.head_commit.message, '[faster]') && 'ubuntu-latest-l' || 'ubuntu-latest' }}
 
     outputs:
       image: ${{ steps.meta.outputs.tags }}
@@ -62,8 +62,21 @@ jobs:
           type=semver,pattern={{version}}
           type=sha,format=long,prefix=
 
+    - name: Check if Docker image tag exists
+      id: check_tag
+      run: |
+        image_exists=$(aws ecr describe-images --repository-name ${{ vars.ECR_REPOSITORY }} --image-ids imageTag=${{ github.event.after }} > /dev/null 2>&1 && echo "true" || echo "false")
+        if [[ $image_exists == "true" ]]; then
+          echo "Image tag already exists. Skipping build."
+          echo "TAG_EXISTS=true" >> $GITHUB_OUTPUT
+        else
+          echo "Image tag does not exist. Building image."
+          echo "TAG_EXISTS=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Cache Docker layers
       uses: actions/cache@v3
+      if: steps.check_tag.outputs.TAG_EXISTS == 'false'
       with:
         path: /tmp/.buildx-cache
         key: ${{ runner.os }}-single-buildx-standard
@@ -72,6 +85,7 @@ jobs:
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v3
+      if: steps.check_tag.outputs.TAG_EXISTS == 'false'
       with:
         context: .
         push: true
@@ -82,11 +96,13 @@ jobs:
         cache-to: type=local,dest=/tmp/.buildx-cache-new
         build-args: |
           environment=${{ inputs.environment }}
+          BUILDKIT_INLINE_CACHE=1
           AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }}
           AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
 
     - name: Move cache
+      if: steps.check_tag.outputs.TAG_EXISTS == 'false'
       run: |
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
