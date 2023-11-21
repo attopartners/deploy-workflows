@@ -20,7 +20,7 @@ on:
       helm_chart_version:
         description: 'Helm chart version'
         type: string
-        default: '0.2.13'
+        default: '0.2.26'
     secrets:
       KUBE_CONFIG:
         required: true
